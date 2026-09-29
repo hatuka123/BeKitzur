@@ -5,6 +5,8 @@ import os
 import shutil
 from pathlib import Path
 
+# The data folder keeps the name from before the rename to BeKitzur, so updates
+# find the user's shortcuts where they already are.
 APP_NAME = "ShWordCut"
 DATA_DIR = Path(os.environ.get("APPDATA", Path.home())) / APP_NAME
 # The app shipped as "PixelSnip" before it was renamed.
@@ -22,6 +24,8 @@ DEFAULTS = {
     "toast_on_miss": True,
     "toast_on_hit": False,
     "toast_position": "cursor",
+    "convert_enabled": True,
+    "convert_switch_layout": True,
     "autostart": False,
     "window_geometry": None,
 }

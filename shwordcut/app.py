@@ -9,8 +9,9 @@ from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from . import winapi
 from .config import Settings, migrate_legacy_data
+from .converter import LayoutConverter
 from .expander import Expander
-from .hotkey import CapsLockTrigger
+from .hotkey import HotkeyListener
 from .i18n import Translator
 from .store import Store
 from .ui import theme
@@ -19,6 +20,7 @@ from .ui.manager import ManagerWindow
 from .ui.settings import SettingsDialog
 from .ui.toast import Toast
 
+# Named from before the rename to BeKitzur, so an old copy still counts as running.
 MUTEX_NAME = "Local\\ShWordCut.SingleInstance"
 SHOW_EVENT_NAME = "Local\\ShWordCut.ShowManager"
 ERROR_ALREADY_EXISTS = 183
@@ -50,7 +52,7 @@ class ShWordCutApp:
     def __init__(self):
         self.qt = QApplication(sys.argv)
         self.qt.setQuitOnLastWindowClosed(False)
-        self.qt.setApplicationName("ShWordCut")
+        self.qt.setApplicationName("BeKitzur")
 
         migrate_legacy_data()
         self.settings = Settings()
@@ -69,15 +71,19 @@ class ShWordCutApp:
         self.expander.notify.connect(self._on_notify)
         self.expander.used.connect(self._on_used)
 
-        self.trigger = CapsLockTrigger(self.settings)
-        self.trigger.triggered.connect(self.expander.trigger)
+        self.converter = LayoutConverter(self.settings)
+        self.converter.notify.connect(self._on_notify)
+
+        self.trigger = HotkeyListener(self.settings)
+        self.trigger.expand.connect(self.expander.trigger)
+        self.trigger.convert.connect(self.converter.trigger)
         self.trigger.start()
 
         self._build_tray()
         self._start_show_listener()
 
         if not self.trigger.installed:
-            QMessageBox.critical(None, "ShWordCut", self.tr("hook_failed"))
+            QMessageBox.critical(None, self.tr("app_name"), self.tr("hook_failed"))
 
     def _apply_direction(self):
         self.qt.setLayoutDirection(
@@ -86,7 +92,7 @@ class ShWordCutApp:
 
     def _build_tray(self):
         self.tray = QSystemTrayIcon(icon(self.settings["enabled"]))
-        self.tray.setToolTip("ShWordCut")
+        self.tray.setToolTip(self.tr("app_name"))
         self.tray.activated.connect(self._on_tray_activated)
         self._rebuild_tray_menu()
         self.tray.show()
@@ -163,6 +169,7 @@ class ShWordCutApp:
     def _on_language_changed(self):
         self._apply_direction()
         self._rebuild_tray_menu()
+        self.tray.setToolTip(self.tr("app_name"))
         was_visible = self.window is not None and self.window.isVisible()
         if self.window:
             self.window.deleteLater()
@@ -172,7 +179,7 @@ class ShWordCutApp:
         self.tray.setIcon(icon(self.settings["enabled"]))
 
     def _on_notify(self, key, good):
-        if key in ("toast_miss", "toast_empty") and not self.settings["toast_on_miss"]:
+        if key in ("toast_miss", "toast_empty", "toast_convert_empty") and not self.settings["toast_on_miss"]:
             return
         self.toast.show_message(
             self.tr(key), good, at_cursor=self.settings["toast_position"] == "cursor"

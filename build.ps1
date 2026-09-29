@@ -1,7 +1,7 @@
-# Builds dist\ShWordCut-Setup-<version>.exe
+# Builds dist\BeKitzur-Setup-<version>.exe
 #   1. icon + version resource   (packaging\make_assets.py)
-#   2. standalone app folder     (PyInstaller -> dist\ShWordCut)
-#   3. installer                 (Inno Setup -> dist\ShWordCut-Setup-<version>.exe)
+#   2. standalone app folder     (PyInstaller -> dist\BeKitzur)
+#   3. installer                 (Inno Setup -> dist\BeKitzur-Setup-<version>.exe)
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -37,7 +37,7 @@ Write-Output "version $version by $author"
 
 Write-Output "== pyinstaller"
 & $python -m PyInstaller --noconfirm --clean --windowed `
-    --name ShWordCut `
+    --name BeKitzur `
     --icon (Join-Path $build "shwordcut.ico") `
     --version-file (Join-Path $build "version_info.txt") `
     --distpath $dist `
@@ -49,21 +49,21 @@ if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 
 Write-Output "== installer"
 # ISCC reads a BOM-less script as ANSI, which would mangle the Hebrew strings.
-$iss = Join-Path $build "shwordcut.iss"
-$text = [IO.File]::ReadAllText((Join-Path $root "packaging\shwordcut.iss"), [Text.Encoding]::UTF8)
+$iss = Join-Path $build "bekitzur.iss"
+$text = [IO.File]::ReadAllText((Join-Path $root "packaging\bekitzur.iss"), [Text.Encoding]::UTF8)
 [IO.File]::WriteAllText($iss, $text, (New-Object Text.UTF8Encoding $true))
 
 & $iscc /Q `
     "/DAppVersion=$version" `
     "/DAppPublisher=$author" `
     "/DLicenseFile=$(Join-Path $root 'LICENSE')" `
-    "/DSourceDir=$(Join-Path $dist 'ShWordCut')" `
+    "/DSourceDir=$(Join-Path $dist 'BeKitzur')" `
     "/DOutputDir=$dist" `
     "/DIconFile=$(Join-Path $build 'shwordcut.ico')" `
     $iss
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
 
-$setup = Join-Path $dist "ShWordCut-Setup-$version.exe"
+$setup = Join-Path $dist "BeKitzur-Setup-$version.exe"
 $size = [math]::Round((Get-Item $setup).Length / 1MB, 1)
 Write-Output ""
 Write-Output "Built $setup ($size MB)"

@@ -17,12 +17,12 @@ VERSION_TEMPLATE = """VSVersionInfo(
   kids=[
     StringFileInfo([StringTable('040904B0', [
       StringStruct('CompanyName', '{author}'),
-      StringStruct('FileDescription', 'ShWordCut - text shortcuts'),
+      StringStruct('FileDescription', 'BeKitzur - text shortcuts'),
       StringStruct('FileVersion', '{ver}'),
-      StringStruct('InternalName', 'ShWordCut'),
+      StringStruct('InternalName', 'BeKitzur'),
       StringStruct('LegalCopyright', 'Copyright (c) 2026 {author}. MIT License.'),
-      StringStruct('OriginalFilename', 'ShWordCut.exe'),
-      StringStruct('ProductName', 'ShWordCut'),
+      StringStruct('OriginalFilename', 'BeKitzur.exe'),
+      StringStruct('ProductName', 'BeKitzur'),
       StringStruct('ProductVersion', '{ver}')])]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]

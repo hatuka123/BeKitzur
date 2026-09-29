@@ -1,7 +1,8 @@
 """Hebrew / English interface strings."""
 
 STRINGS = {
-    "app_title": ("ShWordCut - קיצורי טקסט", "ShWordCut - Text Shortcuts"),
+    "app_name": ("בקיצור", "BeKitzur"),
+    "app_title": ("בקיצור - קיצורי טקסט", "BeKitzur - Text Shortcuts"),
     "manager": ("ניהול קיצורים", "Shortcut Manager"),
     "credit": ("גרסה {version} · מאת {author}", "v{version} · by {author}"),
     "search": ("חיפוש...", "Search..."),
@@ -77,6 +78,19 @@ STRINGS = {
     "set_insert_mode": ("אופן ההוספה", "Insertion method"),
     "insert_type": ("הקלדה (עובד בכל מקום)", "Type (works everywhere)"),
     "insert_paste": ("הדבקה (מהיר יותר)", "Paste (faster)"),
+    "set_convert": ("תיקון שפת הקלדה", "LAYOUT FIX"),
+    "set_convert_enabled": (
+        "המרת עברית/אנגלית בלחיצה כפולה על Ctrl השמאלי",
+        "Convert Hebrew/English on a double tap of left Ctrl",
+    ),
+    "set_convert_hint": (
+        "ממיר את הטקסט המסומן, או את המילה שלפני הסמן, כאילו הוקלד בשפה השנייה: akuo ↔ שלום",
+        "Converts the selected text, or the word before the cursor, as if typed on the other layout: akuo ↔ שלום",
+    ),
+    "set_convert_switch": (
+        "להחליף גם את שפת המקלדת אחרי ההמרה",
+        "Also switch the keyboard language after converting",
+    ),
     "set_notifications": ("התראות", "NOTIFICATIONS"),
     "set_toast_miss": (
         "להציג הודעה כשאין התאמה",
@@ -88,6 +102,7 @@ STRINGS = {
     ),
     "toast_miss": ("אין קיצור למילה הזו", "No shortcut for that word"),
     "toast_empty": ("אין מילה לפני הסמן", "No word before the cursor"),
+    "toast_convert_empty": ("אין טקסט להמרה", "Nothing to convert"),
     "toast_disabled": ("ההחלפות מכובות", "Expansion is off"),
     "tray_open": ("פתח ניהול", "Open Manager"),
     "tray_toggle_on": ("הפעל החלפות", "Enable Expansion"),

@@ -24,6 +24,7 @@ WM_QUIT = 0x0012
 
 VK_CAPITAL = 0x14
 VK_CONTROL = 0x11
+VK_LCONTROL = 0xA2
 VK_SHIFT = 0x10
 VK_MENU = 0x12
 VK_LWIN = 0x5B
@@ -52,6 +53,10 @@ EXTENDED_KEYS = frozenset({
 
 CF_UNICODETEXT = 13
 GMEM_MOVEABLE = 0x0002
+
+WM_INPUTLANGCHANGEREQUEST = 0x0050
+LANG_ENGLISH = 0x09
+LANG_HEBREW = 0x0D
 
 # Tags input we inject ourselves so the hook can ignore it.
 SIGNATURE = 0x50585350
@@ -135,6 +140,20 @@ user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
 user32.GetAsyncKeyState.restype = ctypes.c_short
 user32.MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
 user32.MapVirtualKeyW.restype = wintypes.UINT
+user32.EnumClipboardFormats.argtypes = [wintypes.UINT]
+user32.EnumClipboardFormats.restype = wintypes.UINT
+user32.GetClipboardFormatNameW.argtypes = [wintypes.UINT, wintypes.LPWSTR, ctypes.c_int]
+user32.GetClipboardFormatNameW.restype = ctypes.c_int
+user32.GetForegroundWindow.argtypes = []
+user32.GetForegroundWindow.restype = wintypes.HWND
+user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+user32.GetKeyboardLayout.argtypes = [wintypes.DWORD]
+user32.GetKeyboardLayout.restype = wintypes.HKL
+user32.GetKeyboardLayoutList.argtypes = [ctypes.c_int, ctypes.POINTER(wintypes.HKL)]
+user32.GetKeyboardLayoutList.restype = ctypes.c_int
+user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+user32.PostMessageW.restype = wintypes.BOOL
 kernel32.GetCurrentThreadId.restype = wintypes.DWORD
 kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
 kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
@@ -144,6 +163,8 @@ kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
 kernel32.GlobalUnlock.restype = wintypes.BOOL
 kernel32.GlobalFree.argtypes = [wintypes.HGLOBAL]
 kernel32.GlobalFree.restype = wintypes.HGLOBAL
+kernel32.GlobalSize.argtypes = [wintypes.HGLOBAL]
+kernel32.GlobalSize.restype = ctypes.c_size_t
 kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
 kernel32.GetModuleHandleW.restype = wintypes.HMODULE
 
@@ -178,11 +199,13 @@ def send_chord(*vks):
     _send(seq)
 
 
-def send_key(vk, times=1):
-    seq = []
+def send_key(vk, times=1, shift=False):
+    seq = [_key_input(VK_SHIFT)] if shift else []
     for _ in range(times):
         seq.append(_key_input(vk))
         seq.append(_key_input(vk, up=True))
+    if shift:
+        seq.append(_key_input(VK_SHIFT, up=True))
     _send(seq)
 
 
@@ -298,6 +321,72 @@ def set_clipboard_text(text):
         return True
     finally:
         user32.CloseClipboard()
+
+
+# Editors such as VS Code copy the whole line when nothing is selected. They tag
+# that copy so their own paste can tell it apart, and so can we.
+_LINE_COPY_FORMATS = ("vscode-editor-data", "chromium web custom mime data format")
+_LINE_COPY_MARKS = tuple(
+    '"isFromEmptySelection":true'.encode(enc) for enc in ("utf-8", "utf-16-le")
+)
+
+
+def _clipboard_bytes(fmt):
+    handle = user32.GetClipboardData(fmt)
+    if not handle:
+        return None
+    ptr = kernel32.GlobalLock(handle)
+    if not ptr:
+        return None
+    try:
+        return ctypes.string_at(ptr, kernel32.GlobalSize(handle))
+    finally:
+        kernel32.GlobalUnlock(handle)
+
+
+def clipboard_is_line_copy():
+    """True when the clipboard holds an editor's whole-line copy of an empty selection."""
+    if not _open_clipboard():
+        return False
+    try:
+        name = ctypes.create_unicode_buffer(128)
+        fmt = user32.EnumClipboardFormats(0)
+        while fmt:
+            if user32.GetClipboardFormatNameW(fmt, name, len(name)):
+                if name.value.lower() in _LINE_COPY_FORMATS:
+                    data = _clipboard_bytes(fmt)
+                    if data and any(mark in data for mark in _LINE_COPY_MARKS):
+                        return True
+            fmt = user32.EnumClipboardFormats(fmt)
+        return False
+    finally:
+        user32.CloseClipboard()
+
+
+def _primary_lang(hkl):
+    return (hkl or 0) & 0x3FF
+
+
+def foreground_layout_lang():
+    """Primary language id of the keyboard layout active in the foreground window."""
+    thread = user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), None)
+    return _primary_lang(user32.GetKeyboardLayout(thread))
+
+
+def switch_layout(lang):
+    """Ask the foreground window to switch to an installed layout of the given language."""
+    hwnd = user32.GetForegroundWindow()
+    if not hwnd or foreground_layout_lang() == lang:
+        return False
+    count = user32.GetKeyboardLayoutList(0, None)
+    layouts = (wintypes.HKL * count)()
+    user32.GetKeyboardLayoutList(count, layouts)
+    for hkl in layouts:
+        if _primary_lang(hkl) == lang:
+            # HKLs can be sign-extended; wrap into LPARAM's signed range.
+            lparam = ctypes.c_ssize_t(hkl).value
+            return bool(user32.PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, lparam))
+    return False
 
 
 class KeyboardHook:

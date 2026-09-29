@@ -91,6 +91,18 @@ class SettingsDialog(QDialog):
         form.addWidget(self.double_tap)
 
         form.addSpacing(10)
+        form.addWidget(section_label(tr("set_convert")))
+        self.convert_enabled = QCheckBox(tr("set_convert_enabled"))
+        self.convert_enabled.setChecked(self.settings["convert_enabled"])
+        form.addWidget(self.convert_enabled)
+        form.addWidget(hint_label(tr("set_convert_hint")))
+        self.convert_switch = QCheckBox(tr("set_convert_switch"))
+        self.convert_switch.setChecked(self.settings["convert_switch_layout"])
+        self.convert_switch.setEnabled(self.convert_enabled.isChecked())
+        self.convert_enabled.toggled.connect(self.convert_switch.setEnabled)
+        form.addWidget(self.convert_switch)
+
+        form.addSpacing(10)
         form.addWidget(section_label(tr("set_behavior")))
         form.addWidget(QLabel(tr("set_case_default")))
         self.case_default = QComboBox()
@@ -148,6 +160,8 @@ class SettingsDialog(QDialog):
             "insert_mode": INSERT_MODES[self.insert_mode.currentIndex()],
             "toast_on_miss": self.toast_miss.isChecked(),
             "toast_on_hit": self.toast_hit.isChecked(),
+            "convert_enabled": self.convert_enabled.isChecked(),
+            "convert_switch_layout": self.convert_switch.isChecked(),
         })
         self.settings.save()
         autostart.set_enabled(self.autostart.isChecked())

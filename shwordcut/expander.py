@@ -20,19 +20,22 @@ LTR_FIRST = (winapi.VK_LEFT, winapi.VK_RIGHT)
 RTL_FIRST = (winapi.VK_RIGHT, winapi.VK_LEFT)
 
 
-class Expander(QObject):
-    notify = pyqtSignal(str, bool)
-    used = pyqtSignal(object)
+# Shared by every text action: two of them editing the same field at once would
+# interleave their keystrokes.
+_action_lock = threading.Lock()
 
-    def __init__(self, settings, store):
+
+class TextAction(QObject):
+    """Base for actions that select, copy and retype text in the foreground app."""
+
+    notify = pyqtSignal(str, bool)
+
+    def __init__(self, settings):
         super().__init__()
         self.settings = settings
-        self.store = store
-        self._lock = threading.Lock()
-        self._preferred = LTR_FIRST
 
     def trigger(self):
-        if not self._lock.acquire(blocking=False):
+        if not _action_lock.acquire(blocking=False):
             return
         threading.Thread(target=self._run_guarded, daemon=True).start()
 
@@ -40,7 +43,57 @@ class Expander(QObject):
         try:
             self._run()
         finally:
-            self._lock.release()
+            _action_lock.release()
+
+    def _run(self):
+        raise NotImplementedError
+
+    def _grab(self, select_key):
+        winapi.send_chord(winapi.VK_CONTROL, winapi.VK_SHIFT, select_key)
+        time.sleep(SELECT_SETTLE)
+        return self._copy_selection()
+
+    def _collapse(self, restore_key, length):
+        """Walk the caret back over the abandoned selection, one character per press.
+
+        Counting characters keeps this correct in both text directions: the restore
+        travels the same visual axis the selection did.
+        """
+        if length:
+            winapi.send_key(restore_key, times=length)
+            time.sleep(RESTORE_SETTLE)
+
+    def _insert(self, payload, saved, preserve):
+        if self.settings["insert_mode"] == "paste":
+            winapi.set_clipboard_text(payload)
+            winapi.send_chord(winapi.VK_CONTROL, winapi.VK_V)
+            time.sleep(PASTE_SETTLE)
+        else:
+            winapi.type_text(payload)
+        self._restore(saved, preserve)
+
+    def _copy_selection(self, timeout=COPY_TIMEOUT):
+        before = winapi.clipboard_sequence()
+        winapi.send_chord(winapi.VK_CONTROL, winapi.VK_C)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if winapi.clipboard_sequence() != before:
+                return winapi.get_clipboard_text()
+            time.sleep(COPY_POLL)
+        return None
+
+    def _restore(self, saved, preserve):
+        if preserve and saved is not None:
+            winapi.set_clipboard_text(saved)
+
+
+class Expander(TextAction):
+    used = pyqtSignal(object)
+
+    def __init__(self, settings, store):
+        super().__init__(settings)
+        self.store = store
+        self._preferred = LTR_FIRST
 
     def _run(self):
         if not self.settings["enabled"]:
@@ -76,41 +129,3 @@ class Expander(QObject):
 
         self._restore(saved, preserve)
         self.notify.emit("toast_miss" if saw_word else "toast_empty", False)
-
-    def _grab(self, select_key):
-        winapi.send_chord(winapi.VK_CONTROL, winapi.VK_SHIFT, select_key)
-        time.sleep(SELECT_SETTLE)
-        return self._copy_selection()
-
-    def _collapse(self, restore_key, length):
-        """Walk the caret back over the abandoned selection, one character per press.
-
-        Counting characters keeps this correct in both text directions: the restore
-        travels the same visual axis the selection did.
-        """
-        if length:
-            winapi.send_key(restore_key, times=length)
-            time.sleep(RESTORE_SETTLE)
-
-    def _insert(self, payload, saved, preserve):
-        if self.settings["insert_mode"] == "paste":
-            winapi.set_clipboard_text(payload)
-            winapi.send_chord(winapi.VK_CONTROL, winapi.VK_V)
-            time.sleep(PASTE_SETTLE)
-        else:
-            winapi.type_text(payload)
-        self._restore(saved, preserve)
-
-    def _copy_selection(self):
-        before = winapi.clipboard_sequence()
-        winapi.send_chord(winapi.VK_CONTROL, winapi.VK_C)
-        deadline = time.monotonic() + COPY_TIMEOUT
-        while time.monotonic() < deadline:
-            if winapi.clipboard_sequence() != before:
-                return winapi.get_clipboard_text()
-            time.sleep(COPY_POLL)
-        return None
-
-    def _restore(self, saved, preserve):
-        if preserve and saved is not None:
-            winapi.set_clipboard_text(saved)

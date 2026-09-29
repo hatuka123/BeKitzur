@@ -5,7 +5,9 @@ import winreg
 from pathlib import Path
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-VALUE_NAME = "ShWordCut"
+VALUE_NAME = "BeKitzur"
+# Written by versions from before the rename.
+LEGACY_VALUE_NAME = "ShWordCut"
 
 
 def _command():
@@ -22,15 +24,24 @@ def _command():
 def is_enabled():
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
-            winreg.QueryValueEx(key, VALUE_NAME)
-        return True
+            for name in (VALUE_NAME, LEGACY_VALUE_NAME):
+                try:
+                    winreg.QueryValueEx(key, name)
+                    return True
+                except OSError:
+                    pass
     except OSError:
-        return False
+        pass
+    return False
 
 
 def set_enabled(enabled):
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            try:
+                winreg.DeleteValue(key, LEGACY_VALUE_NAME)
+            except FileNotFoundError:
+                pass
             if enabled:
                 winreg.SetValueEx(key, VALUE_NAME, 0, winreg.REG_SZ, _command())
             else:
