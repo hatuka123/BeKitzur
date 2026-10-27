@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>כתב יד לפונט · Ktav</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <h1><span data-i18n="title">כתב יד לפונט</span> <small>Ktav</small></h1>
+    <button id="lang" class="ghost" type="button">English</button>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="draw" class="on" data-i18n="tabDraw">1. ציור וצילום אותיות</button>
+    <button role="tab" data-tab="scan" data-i18n="tabScan">2. דף להדפסה</button>
+    <button role="tab" data-tab="font" data-i18n="tabFont">3. יצירת הפונט</button>
+  </nav>
+
+  <main>
+    <!-- 1: per-letter drawing / photo -->
+    <section id="tab-draw" class="tab on">
+      <p class="hint" data-i18n="drawHint">לחצו על אות כדי לצייר אותה (עכבר, אצבע או עט), או לצלם אות שכתבתם על נייר.</p>
+      <div id="progress" class="progress"></div>
+      <div id="grid"></div>
+    </section>
+
+    <!-- 2: printable sheet -->
+    <section id="tab-scan" class="tab">
+      <div class="card">
+        <h2 data-i18n="sheetTitle">א. מדפיסים וכותבים</h2>
+        <p data-i18n="sheetHint">מדפיסים את הדפים, כותבים כל אות בתוך הריבוע שלה בעט כהה (על הקו הכחול התחתון), ומצלמים כל דף ישר מלמעלה כשכל ארבעת הריבועים השחורים בפינות נראים.</p>
+        <div class="row">
+          <button id="sheetPrint" type="button" data-i18n="sheetPrint">הדפסת הדפים</button>
+          <button id="sheetPng" class="ghost" type="button" data-i18n="sheetPng">הורדה כתמונות</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="scanTitle">ב. מעלים צילום של דף</h2>
+        <div class="row">
+          <label class="file"><span data-i18n="scanPick">צילום / בחירת תמונה</span>
+            <input id="scanFile" type="file" accept="image/*"></label>
+          <label><span data-i18n="scanPage">איזה דף:</span> <select id="scanPage"></select></label>
+        </div>
+        <div id="scanWork" hidden>
+          <p class="hint" data-i18n="scanCorners">בדקו שארבע הנקודות הכתומות יושבות על מרכזי הריבועים השחורים. אפשר לגרור אותן.</p>
+          <div class="scanbox"><canvas id="scanCanvas"></canvas></div>
+          <div class="row">
+            <button id="scanCut" type="button" data-i18n="scanCut">חיתוך האותיות</button>
+          </div>
+        </div>
+        <div id="scanResult" hidden>
+          <div id="scanCells" class="cells"></div>
+          <div class="row">
+            <button id="scanSave" type="button" data-i18n="scanSave">שמירת האותיות</button>
+            <span id="scanMsg" class="msg"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3: build -->
+    <section id="tab-font" class="tab">
+      <div class="card">
+        <div class="form">
+          <label><span data-i18n="fName">שם הפונט (באנגלית)</span>
+            <input id="fName" type="text" maxlength="31" value="My Handwriting" dir="ltr"></label>
+          <label><span data-i18n="fWeight">עובי קו</span>
+            <input id="fWeight" type="range" min="-2" max="2" step="0.5" value="0"></label>
+          <label><span data-i18n="fSpacing">רווח בין אותיות</span>
+            <input id="fSpacing" type="range" min="0" max="150" step="5" value="50"></label>
+          <label><span data-i18n="fWord">רווח בין מילים</span>
+            <input id="fWord" type="range" min="150" max="600" step="10" value="300"></label>
+          <label class="check"><input id="fCase" type="checkbox" checked>
+            <span data-i18n="fCase">אות חסרה (A/a) תילקח מהגודל השני</span></label>
+        </div>
+        <div class="row">
+          <button id="fPreview" class="ghost" type="button" data-i18n="fPreview">תצוגה מקדימה</button>
+          <button id="fDownload" type="button" data-i18n="fDownload">הורדת קובץ פונט ‎(.ttf)</button>
+          <span id="fMsg" class="msg"></span>
+        </div>
+        <textarea id="previewText" class="preview" spellcheck="false" rows="4"></textarea>
+      </div>
+      <div class="card">
+        <h2 data-i18n="installTitle">התקנה ב-Windows</h2>
+        <ol>
+          <li data-i18n="install1">פותחים את הקובץ ‎.ttf‎ שהורד.</li>
+          <li data-i18n="install2">לוחצים "Install" (או קליק ימני ← "Install for all users").</li>
+          <li data-i18n="install3">הפונט מופיע ב-Word ובכל תוכנה אחרת לפי השם שבחרתם. תוכנות שהיו פתוחות צריך לפתוח מחדש.</li>
+        </ol>
+        <h2 data-i18n="backupTitle">גיבוי</h2>
+        <p class="hint" data-i18n="backupHint">האותיות נשמרות רק בדפדפן הזה. כדי להמשיך במחשב אחר, שמרו קובץ פרויקט.</p>
+        <div class="row">
+          <button id="projSave" class="ghost" type="button" data-i18n="projSave">שמירת פרויקט</button>
+          <label class="file ghost"><span data-i18n="projLoad">טעינת פרויקט</span>
+            <input id="projLoad" type="file" accept=".json,application/json"></label>
+          <button id="projClear" class="ghost danger" type="button" data-i18n="projClear">מחיקת כל האותיות</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- glyph editor -->
+  <dialog id="editor">
+    <div class="ed-head">
+      <button id="edPrev" class="ghost icon" type="button" aria-label="prev">‹</button>
+      <div class="ed-char"><span id="edChar"></span></div>
+      <button id="edNext" class="ghost icon" type="button" aria-label="next">›</button>
+      <button id="edClose" class="ghost" type="button" data-i18n="done">סיום</button>
+    </div>
+    <div class="ed-stage">
+      <canvas id="edBack" width="480" height="480"></canvas>
+      <canvas id="edInk" width="480" height="480"></canvas>
+    </div>
+    <div class="ed-tools">
+      <button id="edPen" class="tool on" type="button" data-i18n="pen">עט</button>
+      <button id="edEraser" class="tool" type="button" data-i18n="eraser">מחק</button>
+      <label class="size"><span data-i18n="size">עובי</span>
+        <input id="edSize" type="range" min="4" max="40" value="16"></label>
+      <button id="edUndo" class="ghost" type="button" data-i18n="undo">ביטול</button>
+      <button id="edClear" class="ghost" type="button" data-i18n="clear">ניקוי</button>
+    </div>
+    <div class="ed-tools">
+      <label class="file ghost"><span data-i18n="photo">צילום אות</span>
+        <input id="edPhoto" type="file" accept="image/*" capture="environment"></label>
+      <span class="sep"></span>
+      <button class="ghost icon" type="button" data-move="0,-6" aria-label="up">↑</button>
+      <button class="ghost icon" type="button" data-move="0,6" aria-label="down">↓</button>
+      <button class="ghost icon" type="button" data-move="-6,0" aria-label="left">←</button>
+      <button class="ghost icon" type="button" data-move="6,0" aria-label="right">→</button>
+      <button class="ghost icon" type="button" data-scale="0.92" aria-label="smaller">−</button>
+      <button class="ghost icon" type="button" data-scale="1.08" aria-label="bigger">+</button>
+      <label class="check"><input id="edGhost" type="checkbox" checked><span data-i18n="ghost">אות רקע</span></label>
+    </div>
+  </dialog>
+
+  <script src="js/charset.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/trace.js"></script>
+  <script src="js/ttf.js"></script>
+  <script src="js/fontgen.js"></script>
+  <script src="js/sheet.js"></script>
+  <script src="js/scan.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

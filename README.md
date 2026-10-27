@@ -61,6 +61,10 @@ When you double-tap, BeKitzur:
 
 Shortcuts and settings are plain JSON files in `%APPDATA%\ShWordCut`.
 
+## Also in this repo: handwriting to font
+
+[`ktav/`](ktav/) turns your handwriting into a Windows `.ttf` font, in Hebrew and English. Open `ktav/index.html` in a browser. See [ktav/README.md](ktav/README.md).
+
 ## Build from source
 
 Requirements: Windows 10 or 11, Python 3.11+, and [Inno Setup 6](https://jrsoftware.org/isinfo.php) for the installer.
