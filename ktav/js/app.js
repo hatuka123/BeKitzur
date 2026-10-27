@@ -6,7 +6,17 @@
   var t = function (k, v) { return KF.i18n.t(k, v); };
   var N = KF.G.CANVAS, tiles = {}, imgCache = {};
 
+  var android = window.Android && typeof window.Android.saveFile === 'function';
+
   function download(blob, name) {
+    if (android) {
+      var r = new FileReader();
+      r.onload = function () {
+        window.Android.saveFile(name, String(r.result).split(',')[1], blob.type || 'application/octet-stream');
+      };
+      r.readAsDataURL(blob);
+      return;
+    }
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
@@ -134,7 +144,9 @@
       img.src = KF.sheet.renderPage(i).toDataURL('image/png');
       area.appendChild(img);
     });
-    setTimeout(function () { window.print(); }, 300);
+    setTimeout(function () {
+      if (android) window.Android.print(); else window.print();
+    }, 300);
   }
 
   function pngSheets() {
@@ -178,6 +190,7 @@
     fillPages();
     $('sheetPrint').onclick = printSheets;
     $('sheetPng').onclick = pngSheets;
+    if (android) $('sheetPng').hidden = true; // print → "Save as PDF" covers it
     $('scanFile').onchange = function () {
       var f = this.files[0];
       this.value = '';
