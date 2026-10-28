@@ -28,7 +28,9 @@ var two = bitmap(function (x, y) {
     (Math.hypot(x - 300, y - 200) < 20) || (x > 100 && x < 130 && y > 280 && y < 300);
 });
 
-var out = KF.fontgen.makeFont({ O: ring, o: ring, ס: ring, l: bar, ו: bar, ':': two },
+var bar2 = bitmap(function (x, y) { return x > 170 && x < 225 && y > base - 300 && y < base; });
+var bar3 = bitmap(function (x, y) { return x > 190 && x < 205 && y > base - 260 && y < base; });
+var out = KF.fontgen.makeFont({ O: [ring], o: [ring], ס: [ring, two], l: [bar, bar2, bar3], ו: [bar, bar2], ':': [two] },
   { family: KF.fontgen.cleanFamily('Self Test'), fillCase: true });
 var o = KF.trace.traceGlyph(ring, N, 0);
 if (o.length !== 2) throw new Error('ring should trace to 2 contours, got ' + o.length);
@@ -38,4 +40,4 @@ o[1].forEach(function (p, i, c) { var q = c[(i + 1) % c.length]; a1 += p.x * q.y
 if (Math.sign(a0) === Math.sign(a1)) throw new Error('outer and hole wind the same way');
 var file = process.argv[2] || 'selftest.ttf';
 fs.writeFileSync(file, out.bytes);
-console.log('ok:', out.count, 'glyphs,', out.bytes.length, 'bytes ->', file);
+console.log('ok:', out.count, 'letters +', out.alternates, 'variants,', out.bytes.length, 'bytes ->', file);

@@ -137,3 +137,55 @@ dialog::backdrop { background: rgba(0, 0, 0, .45); }
   #printArea { display: block; }
   #printArea img { width: 210mm; height: 297mm; display: block; page-break-after: always; }
 }
+
+/* variants count on a grid tile */
+.tile .count {
+  position: absolute; inset-inline-end: 6px; bottom: 2px;
+  font-style: normal; font-size: .75rem; color: var(--accent); pointer-events: none;
+}
+
+/* editor variants strip */
+.ed-vars { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.vars { display: flex; gap: 6px; overflow-x: auto; max-width: 100%; }
+.var {
+  position: relative; padding: 0; width: 52px; height: 52px; flex: none;
+  background: #fff; border: 2px solid var(--line); border-radius: 8px;
+}
+.var canvas { width: 100%; height: 100%; display: block; }
+.var.on { border-color: var(--accent); }
+.var.main::after {
+  content: '★'; position: absolute; top: -2px; inset-inline-end: 2px; font-size: 12px; color: #e0a100;
+}
+
+/* handwriting photo */
+.hwline { border-top: 1px solid var(--line); padding: 12px 0; }
+.hwline:first-child { border-top: 0; }
+.hwline .strip { width: 100%; max-height: 160px; object-fit: contain; display: block; background: #fff; border-radius: 6px; }
+.hwtext {
+  width: 100%; margin: 8px 0; font: inherit; font-size: 1.15rem; padding: 8px;
+  border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.hwline .warn { color: var(--danger); font-size: .9rem; margin-bottom: 6px; }
+.hwcells { display: flex; flex-wrap: wrap; gap: 6px; }
+.hwcell { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 60px; }
+.hwcell canvas {
+  width: 60px; height: 60px; border-radius: 8px; border: 2px solid var(--accent);
+  background: #fff; cursor: pointer;
+}
+.hwcell input {
+  width: 44px; text-align: center; font: inherit; padding: 2px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.hwcell.off canvas { border-color: var(--line); opacity: .35; }
+.card.sticky { position: sticky; bottom: 8px; z-index: 2; }
+
+/* write tab */
+.writer {
+  width: 100%; margin-top: 8px; font-size: 40px; line-height: 1.5; padding: 4px 16px;
+  border: 1px solid var(--line); border-radius: 10px; background: #fffdf8; color: #1b2a6b;
+  resize: vertical; min-height: 50vh;
+}
+.writer.lined {
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.5em - 2px), #cfe3f3 calc(1.5em - 2px), #cfe3f3 1.5em);
+  background-attachment: local; background-position: 0 4px;
+}

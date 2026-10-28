@@ -13,9 +13,11 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="draw" class="on" data-i18n="tabDraw">1. ציור וצילום אותיות</button>
-    <button role="tab" data-tab="scan" data-i18n="tabScan">2. דף להדפסה</button>
-    <button role="tab" data-tab="font" data-i18n="tabFont">3. יצירת הפונט</button>
+    <button role="tab" data-tab="draw" class="on" data-i18n="tabDraw">ציור אותיות</button>
+    <button role="tab" data-tab="hand" data-i18n="tabHand">צילום כתב יד</button>
+    <button role="tab" data-tab="scan" data-i18n="tabScan">דף להדפסה</button>
+    <button role="tab" data-tab="font" data-i18n="tabFont">יצירת הפונט</button>
+    <button role="tab" data-tab="write" data-i18n="tabWrite">כתיבה</button>
   </nav>
 
   <main>
@@ -24,6 +26,31 @@
       <p class="hint" data-i18n="drawHint">לחצו על אות כדי לצייר אותה (עכבר, אצבע או עט), או לצלם אות שכתבתם על נייר.</p>
       <div id="progress" class="progress"></div>
       <div id="grid"></div>
+    </section>
+
+    <!-- free handwriting photo -->
+    <section id="tab-hand" class="tab">
+      <div class="card">
+        <h2 data-i18n="handTitle">מצלמים טקסט שכתבתם</h2>
+        <p class="hint" data-i18n="handHint">כותבים כמה שורות על דף לבן בלי קווים, בעט כהה, עם רווח בין השורות, ומצלמים ישר מלמעלה. האפליקציה מוצאת את השורות והאותיות ומנחשת מה כתוב. אתם בודקים ומתקנים את הטקסט של כל שורה, ומסמנים אילו אותיות להכניס לפונט. כל אות שמופיעה כמה פעמים נשמרת כמה גרסאות.</p>
+        <div class="row">
+          <label class="file"><span data-i18n="handPick">צילום / בחירת תמונה</span>
+            <input id="handFile" type="file" accept="image/*"></label>
+          <span id="handMsg" class="msg"></span>
+        </div>
+      </div>
+      <div id="handWork" hidden>
+        <div class="card">
+          <p class="hint" data-i18n="handCheck">בכל שורה: בודקים שהטקסט בתיבה הוא בדיוק מה שכתוב (כולל רווחים וסימנים), ואז בודקים שמתחת לכל אות מופיע התו הנכון. לחיצה על אות מסמנת אותה לדילוג (למשל אות מכוערת או חתוכה). אפשר גם לשנות את התו בתיבה הקטנה.</p>
+          <div id="handLines"></div>
+        </div>
+        <div class="card sticky">
+          <div class="row">
+            <button id="handAdd" type="button" data-i18n="handAdd">הוספה לפונט</button>
+            <span id="handAddMsg" class="msg"></span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- 2: printable sheet -->
@@ -74,6 +101,8 @@
             <input id="fWord" type="range" min="150" max="600" step="10" value="300"></label>
           <label class="check"><input id="fCase" type="checkbox" checked>
             <span data-i18n="fCase">אות חסרה (A/a) תילקח מהגודל השני</span></label>
+          <label class="check"><input id="fVariants" type="checkbox" checked>
+            <span data-i18n="fVariants">להחליף בין הגרסאות של כל אות (נראה יותר טבעי)</span></label>
         </div>
         <div class="row">
           <button id="fPreview" class="ghost" type="button" data-i18n="fPreview">תצוגה מקדימה</button>
@@ -99,6 +128,24 @@
         </div>
       </div>
     </section>
+    <!-- write with the font -->
+    <section id="tab-write" class="tab">
+      <div class="card">
+        <div class="row">
+          <label class="size"><span data-i18n="wSize">גודל</span>
+            <input id="wSize" type="range" min="18" max="96" value="40"></label>
+          <label class="size"><span data-i18n="wColor">צבע</span>
+            <input id="wColor" type="color" value="#1b2a6b"></label>
+          <label class="check"><input id="wLines" type="checkbox" checked><span data-i18n="wLines">דף שורות</span></label>
+          <span id="wMsg" class="msg"></span>
+        </div>
+        <textarea id="wText" class="writer lined" dir="auto" spellcheck="false" rows="10"></textarea>
+        <div class="row">
+          <button id="wImage" type="button" data-i18n="wImage">שמירה / שיתוף כתמונה</button>
+          <button id="wClear" class="ghost" type="button" data-i18n="clear">ניקוי</button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- glyph editor -->
@@ -112,6 +159,12 @@
     <div class="ed-stage">
       <canvas id="edBack" width="480" height="480"></canvas>
       <canvas id="edInk" width="480" height="480"></canvas>
+    </div>
+    <div class="ed-vars">
+      <div id="edVars" class="vars"></div>
+      <button id="edVarAdd" class="ghost" type="button" data-i18n="varAdd">+ גרסה</button>
+      <button id="edVarMain" class="ghost" type="button" data-i18n="varMain">★ ראשית</button>
+      <button id="edVarDel" class="ghost danger" type="button" data-i18n="varDel">מחיקת גרסה</button>
     </div>
     <div class="ed-tools">
       <button id="edPen" class="tool on" type="button" data-i18n="pen">עט</button>
@@ -143,7 +196,10 @@
   <script src="js/fontgen.js"></script>
   <script src="js/sheet.js"></script>
   <script src="js/scan.js"></script>
+  <script src="js/hand.js"></script>
   <script src="js/editor.js"></script>
+  <script src="js/handui.js"></script>
+  <script src="js/write.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

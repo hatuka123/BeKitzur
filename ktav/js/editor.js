@@ -3,7 +3,7 @@
 (function (KF) {
   'use strict';
 
-  var N, dlg, back, ink, ctx, chars, cur = -1, dirty = false;
+  var N, dlg, back, ink, ctx, chars, cur = -1, curVar = 0, dirty = false;
   var undo = [], tool = 'pen', drawing = null;
   var $ = function (id) { return document.getElementById(id); };
 
@@ -32,6 +32,25 @@
     document.querySelectorAll('[data-scale]').forEach(function (b) {
       b.onclick = function () { transform(0, 0, +b.dataset.scale); };
     });
+    $('edVarAdd').onclick = function () {
+      save();
+      var raw = KF.store.raw(chars[cur]);
+      curVar = raw ? raw.v.length : 0;
+      loadVariant();
+    };
+    $('edVarMain').onclick = function () {
+      save();
+      KF.store.select(chars[cur], curVar);
+      renderVars();
+    };
+    $('edVarDel').onclick = function () {
+      var raw = KF.store.raw(chars[cur]);
+      dirty = false;
+      if (raw && curVar < raw.v.length) KF.store.setVariant(chars[cur], curVar, null);
+      raw = KF.store.raw(chars[cur]);
+      curVar = raw ? Math.min(raw.sel, raw.v.length - 1) : 0;
+      loadVariant();
+    };
     $('edPhoto').onchange = function () {
       var f = this.files[0];
       this.value = '';
@@ -75,21 +94,60 @@
 
   function load(i) {
     cur = i;
-    undo = [];
-    dirty = false;
-    var ch = chars[cur];
+    var ch = chars[cur], raw = KF.store.raw(ch);
+    curVar = raw ? raw.sel : 0;
     $('edChar').textContent = ch;
     var rtl = KF.i18n.lang === 'he';
     $('edPrev').textContent = rtl ? '›' : '‹';
     $('edNext').textContent = rtl ? '‹' : '›';
     drawBack();
+    loadVariant();
+  }
+
+  function loadVariant() {
+    undo = [];
+    dirty = false;
+    var ch = chars[cur], v = curVar, raw = KF.store.raw(ch);
     ctx.clearRect(0, 0, N, N);
-    var url = KF.store.get(ch);
+    var url = raw && raw.v[v];
     if (url) {
       var img = new Image();
-      img.onload = function () { if (chars[cur] === ch) ctx.drawImage(img, 0, 0); };
+      img.onload = function () { if (chars[cur] === ch && curVar === v) ctx.drawImage(img, 0, 0); };
       img.src = url;
     }
+    renderVars();
+  }
+
+  // Thumbnails of the letter's variants; ★ marks the main form.
+  function renderVars() {
+    var box = $('edVars'), ch = chars[cur], raw = KF.store.raw(ch) || { v: [], sel: 0 };
+    box.textContent = '';
+    var list = raw.v.slice();
+    if (curVar >= list.length) list.push(null);
+    list.forEach(function (url, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'var' + (i === curVar ? ' on' : '') + (url && i === raw.sel ? ' main' : '');
+      var c = document.createElement('canvas');
+      c.width = c.height = 48;
+      b.appendChild(c);
+      if (url) {
+        var img = new Image();
+        img.onload = function () { c.getContext('2d').drawImage(img, 0, 0, 48, 48); };
+        img.src = url;
+      }
+      b.onclick = function () {
+        if (i === curVar) return;
+        save();
+        var r = KF.store.raw(ch);
+        curVar = Math.min(i, r ? r.v.length : 0);
+        loadVariant();
+      };
+      box.appendChild(b);
+    });
+    $('edVarMain').disabled = !(curVar < raw.v.length) || curVar === raw.sel;
+    $('edVarDel').disabled = !(curVar < raw.v.length);
+    box.hidden = list.length < 2;
   }
 
   function go(d) {
@@ -106,8 +164,14 @@
   function save() {
     if (cur < 0 || !dirty) return;
     dirty = false;
-    var ok = KF.store.set(chars[cur], isEmpty() ? null : ink.toDataURL('image/png'));
+    var ch = chars[cur], raw = KF.store.raw(ch), n = raw ? raw.v.length : 0;
+    var empty = isEmpty();
+    if (empty && curVar >= n) return;
+    var ok = KF.store.setVariant(ch, Math.min(curVar, n), empty ? null : ink.toDataURL('image/png'));
     if (!ok) KF.app.warn(KF.i18n.t('storageFull'));
+    raw = KF.store.raw(ch);
+    if (empty) curVar = raw ? Math.min(curVar, raw.v.length - 1) : 0;
+    renderVars();
   }
 
   function snapshot() {

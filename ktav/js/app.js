@@ -51,6 +51,7 @@
       b.onclick = function () {
         document.querySelectorAll('[data-tab]').forEach(function (x) { x.classList.toggle('on', x === b); });
         document.querySelectorAll('.tab').forEach(function (s) { s.classList.toggle('on', s.id === 'tab-' + b.dataset.tab); });
+        if (b.dataset.tab === 'write') KF.write.show();
       };
     });
     $('lang').onclick = function () {
@@ -76,6 +77,8 @@
     var x = c.getContext('2d'), s = c.width, url = KF.store.get(ch);
     x.clearRect(0, 0, s, s);
     c.parentNode.classList.toggle('done', !!url);
+    var k = KF.store.variants(ch).length;
+    c.parentNode.querySelector('.count').textContent = k > 1 ? '×' + k : '';
     if (!url) return;
     var img = imgCache[url];
     if (!img) {
@@ -105,7 +108,9 @@
         c.width = c.height = 96;
         var l = document.createElement('span');
         l.textContent = ch;
-        b.append(c, l);
+        var n = document.createElement('i');
+        n.className = 'count';
+        b.append(c, l, n);
         b.onclick = function () { KF.editor.open(ch); };
         box.appendChild(b);
         tiles[ch] = c;
@@ -272,6 +277,7 @@
       spacing: +$('fSpacing').value,
       wordSpace: +$('fWord').value,
       fillCase: $('fCase').checked,
+      variants: $('fVariants').checked,
     };
   }
 
@@ -280,13 +286,17 @@
     var c = document.createElement('canvas');
     c.width = c.height = N;
     var x = c.getContext('2d', { willReadFrequently: true });
-    return Promise.all(chars.map(function (ch) {
-      return loadImage(KF.store.get(ch)).then(function (img) { return [ch, img]; });
-    })).then(function (list) {
+    var jobs = [];
+    chars.forEach(function (ch) {
+      KF.store.variants(ch).slice(0, KF.fontgen.MAX_VARIANTS).forEach(function (url) {
+        jobs.push(loadImage(url).then(function (img) { return [ch, img]; }));
+      });
+    });
+    return Promise.all(jobs).then(function (list) {
       list.forEach(function (e) {
         x.clearRect(0, 0, N, N);
         x.drawImage(e[1], 0, 0);
-        out[e[0]] = x.getImageData(0, 0, N, N).data;
+        (out[e[0]] = out[e[0]] || []).push(x.getImageData(0, 0, N, N).data);
       });
       return out;
     });
@@ -294,15 +304,16 @@
 
   var building = false, previewN = 0;
 
-  function build() {
+  function build(msg) {
+    msg = msg || $('fMsg');
     if (building) return Promise.reject(new Error('busy'));
-    if (!KF.store.chars().length) { $('fMsg').textContent = t('noGlyphs'); return Promise.reject(new Error('empty')); }
+    if (!KF.store.chars().length) { msg.textContent = t('noGlyphs'); return Promise.reject(new Error('empty')); }
     building = true;
-    $('fMsg').textContent = t('building');
+    msg.textContent = t('building');
     var opts = fontOpts();
     return new Promise(function (r) { setTimeout(r, 30); }).then(bitmaps).then(function (bm) {
       var res = KF.fontgen.makeFont(bm, opts);
-      $('fMsg').textContent = t('built', { n: res.count });
+      msg.textContent = t('built', { n: res.count, a: res.alternates });
       res.opts = opts;
       return res;
     }).finally(function () { building = false; });
@@ -318,7 +329,7 @@
   }
 
   function initFont() {
-    ['fName', 'fWeight', 'fSpacing', 'fWord', 'fCase'].forEach(function (id) {
+    ['fName', 'fWeight', 'fSpacing', 'fWord', 'fCase', 'fVariants'].forEach(function (id) {
       var el = $(id), v = KF.store.setting(id);
       if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; }
       el.addEventListener('change', function () {
@@ -353,6 +364,8 @@
 
   function init() {
     KF.editor.init();
+    KF.handui.init();
+    KF.write.init();
     initTabs();
     initScan();
     initFont();
@@ -363,6 +376,6 @@
     setLang(KF.store.setting('lang') || 'he');
   }
 
-  KF.app = { warn: warn };
+  KF.app = { warn: warn, download: download, loadImage: loadImage, rgbaToDataURL: rgbaToDataURL, build: build };
   init();
 })(globalThis.KF = globalThis.KF || {});

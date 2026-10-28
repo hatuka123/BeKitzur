@@ -124,7 +124,81 @@
     return r;
   }
 
-  // opts: { family, version, glyphs: [{ name, codes, advance, contours }] }
+  function coverage(gids) {
+    var b = new Buf().u16(1).u16(gids.length);
+    gids.forEach(function (g) { b.u16(g); });
+    return b.b;
+  }
+
+  // Concatenate a header with child blocks; `head(offsets)` writes the
+  // header given each child's offset from the start of the result.
+  function pack(headSize, children, head) {
+    var offs = [], at = headSize;
+    children.forEach(function (c) { offs.push(at); at += c.length; });
+    var b = head(offs);
+    children.forEach(function (c) { b.bytes(c); });
+    return b.b;
+  }
+
+  // Contextual alternates: each letter takes the next variant along from the
+  // glyph before it, so repeated letters do not look stamped.
+  // sets: [[defaultGid, alt1Gid, alt2Gid, ...]] for characters with variants;
+  // letters: every default letter gid.
+  function gsubTable(sets, letters) {
+    var depth = 0;
+    sets.forEach(function (s) { depth = Math.max(depth, s.length - 1); });
+    var byGid = function (a, b) { return a[0] - b[0]; };
+    var sorted = function (a) { return a.slice().sort(function (x, y) { return x - y; }); };
+    var lookups = [];
+
+    // lookup 0: chaining context, one subtable per variant level
+    var chain = [];
+    for (var k = 0; k < depth; k++) {
+      var back = k === 0 ? sorted(letters) : sorted(sets.filter(function (s) { return s.length > k; })
+        .map(function (s) { return s[k]; }));
+      var input = sorted(sets.filter(function (s) { return s.length > k + 1; }).map(function (s) { return s[0]; }));
+      chain.push(pack(18, [coverage(back), coverage(input)], function (o) {
+        return new Buf().u16(3).u16(1).u16(o[0]).u16(1).u16(o[1]).u16(0).u16(1).u16(0).u16(k + 1);
+      }));
+    }
+    lookups.push(chain);
+    // lookups 1..depth: default -> variant k
+    for (var j = 1; j <= depth; j++) {
+      var pairs = sets.filter(function (s) { return s.length > j; })
+        .map(function (s) { return [s[0], s[j]]; }).sort(byGid);
+      lookups.push([pack(6 + pairs.length * 2, [coverage(pairs.map(function (p) { return p[0]; }))], function (o) {
+        var b = new Buf().u16(2).u16(o[0]).u16(pairs.length);
+        pairs.forEach(function (p) { b.u16(p[1]); });
+        return b;
+      })]);
+    }
+    var lookupTables = lookups.map(function (subs, i) {
+      return pack(6 + subs.length * 2, subs, function (o) {
+        var b = new Buf().u16(i === 0 ? 6 : 1).u16(0).u16(subs.length);
+        o.forEach(function (x) { b.u16(x); });
+        return b;
+      });
+    });
+    var lookupList = pack(2 + lookupTables.length * 2, lookupTables, function (o) {
+      var b = new Buf().u16(lookupTables.length);
+      o.forEach(function (x) { b.u16(x); });
+      return b;
+    });
+    var featureList = new Buf().u16(1).tag('calt').u16(8).u16(0).u16(1).u16(0).b;
+    var langSys = function () { return new Buf().u16(4).u16(0).u16(0).u16(0xffff).u16(1).u16(0).b; };
+    var tags = ['DFLT', 'hebr', 'latn'];
+    var scriptList = pack(2 + tags.length * 6, tags.map(langSys), function (o) {
+      var b = new Buf().u16(tags.length);
+      tags.forEach(function (t, i) { b.tag(t).u16(o[i]); });
+      return b;
+    });
+    return pack(10, [scriptList, featureList, lookupList], function (o) {
+      return new Buf().u16(1).u16(0).u16(o[0]).u16(o[1]).u16(o[2]);
+    });
+  }
+
+  // opts: { family, version, glyphs: [{ name, codes, advance, contours }],
+  //         alternates, letters (see gsubTable) }
   // glyphs[0] must be .notdef.
   function build(opts) {
     var G = KF.G, glyphs = opts.glyphs;
@@ -187,7 +261,7 @@
       .i16(G.ASCENT).i16(-G.DESCENT).i16(0)
       .u16(winAsc).u16(winDesc)
       .u32((1 << 0) | (1 << 5)).u32(0) // code pages 1252 Latin 1, 1255 Hebrew
-      .i16(G.XH).i16(G.CAP).u16(0).u16(32).u16(1);
+      .i16(G.XH).i16(G.CAP).u16(0).u16(32).u16(opts.alternates && opts.alternates.length ? 2 : 1);
 
     var post = new Buf().u32(0x30000).u32(0).i16(-100).i16(50)
       .u32(0).u32(0).u32(0).u32(0).u32(0);
@@ -206,6 +280,7 @@
       'OS/2': os2.b, cmap: cmapTable(cmap), glyf: glyf.b, head: head.b,
       hhea: hhea.b, hmtx: hmtx.b, loca: locaB.b, maxp: maxp.b, name: name, post: post.b,
     };
+    if (opts.alternates && opts.alternates.length) tables.GSUB = gsubTable(opts.alternates, opts.letters);
     var tags = Object.keys(tables).sort();
     var n = tags.length, p = 1;
     while (p * 2 <= n) p *= 2;
