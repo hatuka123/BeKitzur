@@ -2,7 +2,7 @@
 (function (KF) {
   'use strict';
 
-  var MAX_VARIANTS = 5;
+  var MAX_VARIANTS = 8;
 
   function notdef() {
     var o = [{ x: 60, y: 0, on: true }, { x: 60, y: 700, on: true },
@@ -32,7 +32,8 @@
 
   // bitmaps: { char: [RGBA (CANVAS x CANVAS), ...] }, main form first.
   // opts: { family, weight (-2..2), spacing (side bearing, units),
-  //         wordSpace (units), fillCase (bool), variants (bool) }
+  //         wordSpace (units), fillCase (true, or 'upper': only capitals
+  //         from small letters), variants (bool) }
   function makeFont(bitmaps, opts) {
     var G = KF.G, cs = KF.charset;
     var src = {};
@@ -41,7 +42,7 @@
       for (var i = 0; i < cs.UPPER.length; i++) {
         var up = cs.UPPER[i], lo = cs.LOWER[i];
         if (!src[up] && src[lo]) src[up] = lo;
-        if (!src[lo] && src[up]) src[lo] = up;
+        if (opts.fillCase !== 'upper' && !src[lo] && src[up]) src[lo] = up;
       }
     }
     var side = opts.spacing != null ? opts.spacing : 50;
@@ -81,7 +82,7 @@
       return set;
     });
 
-    var bytes = KF.ttf.build({ family: opts.family, glyphs: glyphs, alternates: alternates, letters: letters });
+    var bytes = KF.ttf.build({ family: opts.family, glyphs: glyphs, alternates: alternates });
     return { bytes: bytes, count: letters.length, alternates: glyphs.length - 2 - letters.length };
   }
 

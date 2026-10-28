@@ -399,23 +399,59 @@
     };
   }
 
+  function distance(feat, t) {
+    var d = 0;
+    for (var i = 0; i < feat.f.length; i++) { var q = feat.f[i] - t.f[i]; d += q * q; }
+    var da = feat.aspect - t.aspect;
+    d += 0.35 * da * da + 0.25 * ((feat.top - t.top) * (feat.top - t.top) + (feat.bottom - t.bottom) * (feat.bottom - t.bottom));
+    return t.own ? d * 0.8 : d;
+  }
+
   function classify(feat, templates, allow) {
     var best = null, bd = Infinity;
     templates.forEach(function (t) {
       if (allow && !allow.test(t.ch)) return;
-      var d = 0;
-      for (var i = 0; i < feat.f.length; i++) { var q = feat.f[i] - t.f[i]; d += q * q; }
-      var da = feat.aspect - t.aspect;
-      d += 0.35 * da * da + 0.25 * ((feat.top - t.top) * (feat.top - t.top) + (feat.bottom - t.bottom) * (feat.bottom - t.bottom));
-      if (t.own) d *= 0.8;
+      var d = distance(feat, t);
       if (d < bd) { bd = d; best = t; }
     });
     return best ? best.ch : '';
   }
 
+  function lineBase(line) {
+    return median(line.glyphs.filter(function (q) { return q.y1 - q.y0 >= 0.4 * line.H; }).map(function (q) { return q.y1; }));
+  }
+
+  // Flag letters that look little like the character they were given (a bad
+  // cut, a smudge, a misread): such a letter is skipped unless the user
+  // turns it back on.
+  function review(page, line, glyphs, templates) {
+    var base = lineBase(line), script = null;
+    glyphs.forEach(function (gl) {
+      gl.weak = false;
+      if (!gl.ch || gl.off) return;
+      script = script || (HEB.test(gl.ch) ? 'heb' : LAT.test(gl.ch) ? 'lat' : null);
+    });
+    glyphs.forEach(function (gl) {
+      if (!gl.ch || gl.off || !/[\u05d0-\u05eaA-Za-z0-9]/.test(gl.ch)) return;
+      var f = glyphFeature(page, gl, base, line.H), best = {};
+      templates.forEach(function (t) {
+        if (script === 'heb' ? LAT.test(t.ch) : script === 'lat' ? HEB.test(t.ch) : false) return;
+        var d = distance(f, t);
+        if (!(t.ch in best) || d < best[t.ch]) best[t.ch] = d;
+      });
+      var mine = best[gl.ch];
+      if (mine == null) return;
+      var rank = 0;
+      Object.keys(best).forEach(function (c) { if (best[c] < mine) rank++; });
+      var tooSmall = gl.y1 - gl.y0 < 0.25 * line.H && !/[.,'\-:;"]/.test(gl.ch);
+      if (rank > 14 || tooSmall || (gl.clip && rank > 7)) { gl.weak = true; gl.off = true; }
+    });
+    return glyphs;
+  }
+
   // Guess the text of a line, in logical order.
   function guessLine(page, line, templates) {
-    var base = median(line.glyphs.filter(function (q) { return q.y1 - q.y0 >= 0.4 * line.H; }).map(function (q) { return q.y1; }));
+    var base = lineBase(line);
     var feats = line.glyphs.map(function (gl) { return glyphFeature(page, gl, base, line.H); });
     var first = feats.map(function (f) { return classify(f, templates); }).join('');
     var rtl = isRtlText(first);
@@ -501,7 +537,7 @@
   }
 
   KF.hand = {
-    segment: segment, guessLine: guessLine, align: align, lineMetrics: lineMetrics, toBox: toBox,
+    segment: segment, guessLine: guessLine, align: align, review: review, lineMetrics: lineMetrics, toBox: toBox,
     printedTemplates: printedTemplates, templateFromBox: templateFromBox, visual: visual, isRtlText: isRtlText,
   };
 })(globalThis.KF = globalThis.KF || {});

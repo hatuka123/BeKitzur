@@ -140,38 +140,55 @@
     return b.b;
   }
 
-  // Contextual alternates: each letter takes the next variant along from the
-  // glyph before it, so repeated letters do not look stamped.
-  // sets: [[defaultGid, alt1Gid, alt2Gid, ...]] for characters with variants;
-  // letters: every default letter gid.
-  function gsubTable(sets, letters) {
+  // Contextual alternates that look random: the glyph before a letter picks
+  // which of its variants is shown. Every glyph id falls in one of GROUPS
+  // groups, and each letter maps each group to one of its forms. Right after
+  // a form of the same letter it always moves to the next form, so runs like
+  // "lll" never get stuck. Earlier substitutions count as context.
+  // sets: [[defaultGid, alt1Gid, ...]] for characters with variants;
+  // glyphCount: number of glyphs in the font.
+  var GROUPS = 7;
+  function group(gid) { return (gid * 5 + 3) % GROUPS; }
+
+  function gsubTable(sets, glyphCount) {
+    var sorted = function (a) { return a.slice().sort(function (x, y) { return x - y; }); };
+    var pick = function (s, g) { return (g * 3 + s[0] * 7) % s.length; };
     var depth = 0;
     sets.forEach(function (s) { depth = Math.max(depth, s.length - 1); });
-    var byGid = function (a, b) { return a[0] - b[0]; };
-    var sorted = function (a) { return a.slice().sort(function (x, y) { return x - y; }); };
-    var lookups = [];
 
-    // lookup 0: chaining context, one subtable per variant level
-    var chain = [];
-    for (var k = 0; k < depth; k++) {
-      var back = k === 0 ? sorted(letters) : sorted(sets.filter(function (s) { return s.length > k; })
-        .map(function (s) { return s[k]; }));
-      var input = sorted(sets.filter(function (s) { return s.length > k + 1; }).map(function (s) { return s[0]; }));
-      chain.push(pack(18, [coverage(back), coverage(input)], function (o) {
-        return new Buf().u16(3).u16(1).u16(o[0]).u16(1).u16(o[1]).u16(0).u16(1).u16(0).u16(k + 1);
-      }));
-    }
-    lookups.push(chain);
-    // lookups 1..depth: default -> variant k
+    // lookups 1..depth: default -> form j
+    var singles = [];
     for (var j = 1; j <= depth; j++) {
       var pairs = sets.filter(function (s) { return s.length > j; })
-        .map(function (s) { return [s[0], s[j]]; }).sort(byGid);
-      lookups.push([pack(6 + pairs.length * 2, [coverage(pairs.map(function (p) { return p[0]; }))], function (o) {
+        .map(function (s) { return [s[0], s[j]]; }).sort(function (x, y) { return x[0] - y[0]; });
+      singles.push([pack(6 + pairs.length * 2, [coverage(pairs.map(function (q) { return q[0]; }))], function (o) {
         var b = new Buf().u16(2).u16(o[0]).u16(pairs.length);
-        pairs.forEach(function (p) { b.u16(p[1]); });
+        pairs.forEach(function (q) { b.u16(q[1]); });
         return b;
       })]);
     }
+    // j = 0: match and do nothing (stops the later, generic rules)
+    function rule(back, input, j) {
+      return pack(j ? 18 : 14, [coverage(sorted(back)), coverage(sorted(input))], function (o) {
+        var b = new Buf().u16(3).u16(1).u16(o[0]).u16(1).u16(o[1]).u16(0);
+        return j ? b.u16(1).u16(0).u16(j) : b.u16(0);
+      });
+    }
+    var chain = [];
+    // same letter before: its next form, wrapping round to the main one
+    sets.forEach(function (s) {
+      s.forEach(function (prev, k) { chain.push(rule([prev], [s[0]], (k + 1) % s.length)); });
+    });
+    for (var g = 0; g < GROUPS; g++) {
+      var back = [];
+      for (var gid = 1; gid < glyphCount; gid++) if (group(gid) === g) back.push(gid);
+      if (!back.length) continue;
+      for (var t = 1; t <= depth; t++) {
+        var input = sets.filter(function (s) { return pick(s, g) === t; }).map(function (s) { return s[0]; });
+        if (input.length) chain.push(rule(back, input, t));
+      }
+    }
+    var lookups = [chain].concat(singles);
     var lookupTables = lookups.map(function (subs, i) {
       return pack(6 + subs.length * 2, subs, function (o) {
         var b = new Buf().u16(i === 0 ? 6 : 1).u16(0).u16(subs.length);
@@ -198,7 +215,7 @@
   }
 
   // opts: { family, version, glyphs: [{ name, codes, advance, contours }],
-  //         alternates, letters (see gsubTable) }
+  //         alternates (see gsubTable) }
   // glyphs[0] must be .notdef.
   function build(opts) {
     var G = KF.G, glyphs = opts.glyphs;
@@ -280,7 +297,7 @@
       'OS/2': os2.b, cmap: cmapTable(cmap), glyf: glyf.b, head: head.b,
       hhea: hhea.b, hmtx: hmtx.b, loca: locaB.b, maxp: maxp.b, name: name, post: post.b,
     };
-    if (opts.alternates && opts.alternates.length) tables.GSUB = gsubTable(opts.alternates, opts.letters);
+    if (opts.alternates && opts.alternates.length) tables.GSUB = gsubTable(opts.alternates, glyphs.length);
     var tags = Object.keys(tables).sort();
     var n = tags.length, p = 1;
     while (p * 2 <= n) p *= 2;

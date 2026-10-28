@@ -4,7 +4,7 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var t = function (k, v) { return KF.i18n.t(k, v); };
-  var N = KF.G.CANVAS, tiles = {}, imgCache = {};
+  var N = KF.G.CANVAS, tiles = {}, imgCache = {}, estimates = {};
 
   var android = window.Android && typeof window.Android.saveFile === 'function';
 
@@ -79,7 +79,11 @@
     c.parentNode.classList.toggle('done', !!url);
     var k = KF.store.variants(ch).length;
     c.parentNode.querySelector('.count').textContent = k > 1 ? '×' + k : '';
-    if (!url) return;
+    c.parentNode.classList.toggle('est', !url && !!estimates[ch]);
+    if (!url) {
+      if (estimates[ch]) { x.globalAlpha = 0.4; x.drawImage(estimates[ch], 0, 0, s, s); x.globalAlpha = 1; }
+      return;
+    }
     var img = imgCache[url];
     if (!img) {
       img = imgCache[url] = new Image();
@@ -276,9 +280,62 @@
       weight: +$('fWeight').value,
       spacing: +$('fSpacing').value,
       wordSpace: +$('fWord').value,
-      fillCase: $('fCase').checked,
+      // with estimates on, a missing small letter is estimated rather than
+      // copied from the capital (a capital mid-word looks wrong)
+      fillCase: $('fCase').checked && ($('fFill').checked ? 'upper' : true),
       variants: $('fVariants').checked,
     };
+  }
+
+  // Letters the user has not made, estimated in their style (font tab option).
+  function missing(out) {
+    var cs = KF.charset, fill = $('fCase').checked;
+    return cs.ALL.split('').filter(function (ch) {
+      if (out[ch]) return false;
+      // a missing capital is taken from its small letter (see fontOpts)
+      var i = cs.UPPER.indexOf(ch);
+      return !(fill && i >= 0 && out[cs.LOWER[i]]);
+    });
+  }
+
+  function addEstimates(out) {
+    if (!$('fFill').checked || Object.keys(out).length < 3) return 0;
+    var style = KF.synth.measure(out), n = 0;
+    missing(out).forEach(function (ch) {
+      var est = KF.synth.make(ch, style);
+      if (est) { out[ch] = [est]; n++; }
+    });
+    return n;
+  }
+
+  // Grid preview of the estimates, one letter per tick so the page stays usable.
+  var estTimer = null, estRun = 0;
+  function refreshEstimates() {
+    clearTimeout(estTimer);
+    var run = ++estRun;
+    estTimer = setTimeout(function () {
+      bitmaps().then(function (out) {
+        if (run !== estRun) return;
+        var old = estimates;
+        estimates = {};
+        Object.keys(old).forEach(function (ch) { if (!out[ch]) drawTile(ch); });
+        if (!$('fFill').checked || Object.keys(out).length < 3) { KF.charset.ALL.split('').forEach(drawTile); return; }
+        var style = KF.synth.measure(out), todo = missing(out);
+        KF.charset.ALL.split('').forEach(function (ch) { if (todo.indexOf(ch) < 0) drawTile(ch); });
+        (function next() {
+          if (run !== estRun || !todo.length) return;
+          var ch = todo.shift(), est = KF.synth.make(ch, style);
+          if (est) {
+            var c = document.createElement('canvas');
+            c.width = c.height = N;
+            c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(est), N, N), 0, 0);
+            estimates[ch] = c;
+          }
+          drawTile(ch);
+          setTimeout(next, 0);
+        })();
+      });
+    }, 800);
   }
 
   function bitmaps() {
@@ -312,8 +369,9 @@
     msg.textContent = t('building');
     var opts = fontOpts();
     return new Promise(function (r) { setTimeout(r, 30); }).then(bitmaps).then(function (bm) {
+      var est = addEstimates(bm);
       var res = KF.fontgen.makeFont(bm, opts);
-      msg.textContent = t('built', { n: res.count, a: res.alternates });
+      msg.textContent = t('built', { n: res.count, a: res.alternates }) + (est ? ' ' + t('builtEst', { e: est }) : '');
       res.opts = opts;
       return res;
     }).finally(function () { building = false; });
@@ -329,7 +387,7 @@
   }
 
   function initFont() {
-    ['fName', 'fWeight', 'fSpacing', 'fWord', 'fCase', 'fVariants'].forEach(function (id) {
+    ['fName', 'fWeight', 'fSpacing', 'fWord', 'fCase', 'fVariants', 'fFill'].forEach(function (id) {
       var el = $(id), v = KF.store.setting(id);
       if (v != null) { if (el.type === 'checkbox') el.checked = v; else el.value = v; }
       el.addEventListener('change', function () {
@@ -372,7 +430,11 @@
     KF.store.onChange(function (ch) {
       if (ch) drawTile(ch); else KF.charset.ALL.split('').forEach(drawTile);
       progress();
+      refreshEstimates();
     });
+    $('fFill').addEventListener('change', refreshEstimates);
+    $('fCase').addEventListener('change', refreshEstimates);
+    refreshEstimates();
     setLang(KF.store.setting('lang') || 'he');
   }
 

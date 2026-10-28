@@ -97,7 +97,7 @@
     $('wImage').onclick = image;
     $('wClear').onclick = function () { $('wText').value = ''; KF.store.setting('wText', ''); };
     KF.store.onChange(function () { stale = true; });
-    ['fName', 'fWeight', 'fSpacing', 'fWord', 'fCase', 'fVariants'].forEach(function (id) {
+    ['fName', 'fWeight', 'fSpacing', 'fWord', 'fCase', 'fVariants', 'fFill'].forEach(function (id) {
       $(id).addEventListener('change', function () { stale = true; });
     });
     style();

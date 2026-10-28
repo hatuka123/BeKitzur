@@ -189,3 +189,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .45); }
   background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.5em - 2px), #cfe3f3 calc(1.5em - 2px), #cfe3f3 1.5em);
   background-attachment: local; background-position: 0 4px;
 }
+
+/* estimated (filled-in) letters on the grid */
+.tile.est { border-style: dashed; }
+.hwcell.weak canvas { border-color: #e08a00; border-style: dashed; }
+details.ai { margin-top: 8px; }
+details.ai summary { cursor: pointer; color: var(--accent); }
+.keyrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.keyrow input {
+  flex: 1; min-width: 200px; font: inherit; padding: 8px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}

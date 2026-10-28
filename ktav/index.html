@@ -31,12 +31,27 @@
     <!-- free handwriting photo -->
     <section id="tab-hand" class="tab">
       <div class="card">
-        <h2 data-i18n="handTitle">מצלמים טקסט שכתבתם</h2>
-        <p class="hint" data-i18n="handHint">כותבים כמה שורות על דף לבן בלי קווים, בעט כהה, עם רווח בין השורות, ומצלמים ישר מלמעלה. האפליקציה מוצאת את השורות והאותיות ומנחשת מה כתוב. אתם בודקים ומתקנים את הטקסט של כל שורה, ומסמנים אילו אותיות להכניס לפונט. כל אות שמופיעה כמה פעמים נשמרת כמה גרסאות.</p>
+        <h2 data-i18n="handTitle">פונט מכל כתב יד</h2>
+        <p class="hint" data-i18n="handHint">מצלמים או בוחרים תמונה של כתב יד: מכתב, פתק, מחברת, קיר או תמונה מהאינטרנט. מסמנים את האזור עם הכתב, והאפליקציה מוצאת את השורות והאותיות וקוראת מה כתוב. אתם בודקים ומתקנים, ובוחרים אילו אותיות להכניס. אות שמופיעה כמה פעמים נשמרת ככמה גרסאות, ואותיות שלא הופיעו בכלל מושלמות בסגנון של הכתב.</p>
         <div class="row">
           <label class="file"><span data-i18n="handPick">צילום / בחירת תמונה</span>
             <input id="handFile" type="file" accept="image/*"></label>
           <span id="handMsg" class="msg"></span>
+        </div>
+        <details class="ai">
+          <summary data-i18n="aiTitle">קריאה חכמה עם Claude (רשות)</summary>
+          <p class="hint" data-i18n="aiHint">בלי זה, האפליקציה מנחשת לבד, והניחוש משתפר ככל שיש יותר אותיות שלכם. עם מפתח API של Anthropic, השורות נשלחות ל-Claude, שקורא כתב יד בעברית ובאנגלית הרבה יותר טוב. המפתח נשמר רק בדפדפן הזה, ונשלחות רק תמונות השורות. כל קריאה עולה כמה סנטים מהחשבון שלכם.</p>
+          <label class="keyrow"><span>API key</span>
+            <input id="aiKey" type="password" dir="ltr" autocomplete="off" spellcheck="false" placeholder="sk-ant-…"></label>
+        </details>
+      </div>
+      <div id="handPrep" class="card" hidden>
+        <p class="hint" data-i18n="prepHint">גררו את הפינות כדי לסמן רק את האזור עם כתב היד.</p>
+        <div class="scanbox"><canvas id="prepCanvas"></canvas></div>
+        <div class="row">
+          <button id="prepRotate" class="ghost" type="button" data-i18n="prepRotate">⟳ סיבוב</button>
+          <label class="check"><input id="prepInvert" type="checkbox"><span data-i18n="prepInvert">כתב בהיר על רקע כהה</span></label>
+          <button id="prepGo" type="button" data-i18n="prepGo">ניתוח כתב היד</button>
         </div>
       </div>
       <div id="handWork" hidden>
@@ -101,6 +116,8 @@
             <input id="fWord" type="range" min="150" max="600" step="10" value="300"></label>
           <label class="check"><input id="fCase" type="checkbox" checked>
             <span data-i18n="fCase">אות חסרה (A/a) תילקח מהגודל השני</span></label>
+          <label class="check"><input id="fFill" type="checkbox" checked>
+            <span data-i18n="fFill">להשלים אותיות חסרות בסגנון שלכם (משוער)</span></label>
           <label class="check"><input id="fVariants" type="checkbox" checked>
             <span data-i18n="fVariants">להחליף בין הגרסאות של כל אות (נראה יותר טבעי)</span></label>
         </div>
@@ -197,6 +214,8 @@
   <script src="js/sheet.js"></script>
   <script src="js/scan.js"></script>
   <script src="js/hand.js"></script>
+  <script src="js/synth.js"></script>
+  <script src="js/ai.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/handui.js"></script>
   <script src="js/write.js"></script>
